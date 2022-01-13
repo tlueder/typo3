@@ -82,6 +82,7 @@ class ImageManipulation {
   private cropper: Cropper;
   private currentCropVariant: CropVariant;
   private data: any;
+  private clickEvent: Event;
   private defaultFocusArea: Area = {
     height: 1 / 3,
     width: 1 / 3,
@@ -256,10 +257,18 @@ class ImageManipulation {
   private init(): void {
     const image: JQuery = this.currentModal.find(this.cropImageSelector);
     const data: string = this.trigger.attr('data-crop-variants');
+    const that = this;
 
     if (!data) {
       throw new TypeError('ImageManipulation: No cropVariants data found for image');
     }
+
+    $(image.get(0).ownerDocument).mousemove((event: Event) => {
+      if (that.clickEvent) {
+        that.focusArea.data('ui-draggable')._mouseDownEvent = that.clickEvent;
+        that.focusArea.data('ui-draggable')._mouseMove(event);
+      }
+    });
 
     // if we have data already set we assume an internal reinit eg. after resizing
     this.data = $.isEmptyObject(this.data) ? JSON.parse(data) : this.data;
@@ -464,8 +473,8 @@ class ImageManipulation {
    * @desc Internal cropper handler. Called when the cropping starts moving
    * @private
    */
-  private cropStartHandler = (): void => {
-    if (this.currentCropVariant.focusArea) {
+  private cropStartHandler = (event: CustomEvent): void => {
+    if (this.currentCropVariant.focusArea && !event.detail.originalEvent.target.isSameNode(this.focusArea.get(0))) {
       this.focusArea.draggable('option', 'disabled', true);
       this.focusArea.resizable('option', 'disabled', true);
     }
@@ -476,8 +485,8 @@ class ImageManipulation {
    * @desc Internal cropper handler. Called when the cropping ends moving
    * @private
    */
-  private cropEndHandler = (): void => {
-    if (this.currentCropVariant.focusArea) {
+  private cropEndHandler = (event: CustomEvent): void => {
+    if (this.currentCropVariant.focusArea && !event.detail.originalEvent.target.isSameNode(this.focusArea.get(0))) {
       this.focusArea.draggable('option', 'disabled', false);
       this.focusArea.resizable('option', 'disabled', false);
     }
@@ -626,6 +635,16 @@ class ImageManipulation {
           }
         },
       });
+    const that = this;
+    $(this.focusArea).click((event: Event) => {
+      if (!that.clickEvent) {
+        that.clickEvent = event;
+        that.focusArea.data('ui-draggable')._mouseStart(event);
+      } else {
+        that.focusArea.data('ui-draggable')._mouseUp(event);
+        that.clickEvent = null;
+      }
+    });
   }
 
   /**
